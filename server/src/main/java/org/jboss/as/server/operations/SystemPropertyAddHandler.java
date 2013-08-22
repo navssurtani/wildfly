@@ -30,6 +30,7 @@ import org.jboss.as.controller.OperationStepHandler;
 import org.jboss.as.controller.PathAddress;
 import org.jboss.as.controller.operations.common.ProcessEnvironmentSystemPropertyUpdater;
 import org.jboss.as.controller.operations.common.Util;
+import org.jboss.as.server.ServerLogger;
 import org.jboss.dmr.ModelNode;
 import org.wildfly.security.manager.WildFlySecurityManager;
 
@@ -91,14 +92,22 @@ public class SystemPropertyAddHandler implements OperationStepHandler{
         final boolean reload = !applyToRuntime && context.getProcessType().isServer();
 
         if (applyToRuntime) {
-            final String setValue = value != null ? VALUE.resolveModelAttribute(context, model).asString() : null;
-            if (setValue != null) {
-                WildFlySecurityManager.setPropertyPrivileged(name, setValue);
-            } else {
-                WildFlySecurityManager.clearPropertyPrivileged(name);
-            }
-            if (systemPropertyUpdater != null) {
-                systemPropertyUpdater.systemPropertyUpdated(name, setValue);
+            try {
+                applyToRuntime(context, model, name, value);
+            } catch (OperationFailedException ofe) {
+
+                if(ServerLogger.ROOT_LOGGER.isDebugEnabled()) ServerLogger.ROOT_LOGGER.debug
+                        ("OperationFailedException caught ");
+
+                //WFLY-1904 if this is being read from a vault the vault will not be ready yet - hence we need to
+                // make a call to the same execute() method but at runtime.
+
+                context.addStep(new OperationStepHandler() {
+                    @Override
+                    public void execute(OperationContext context, ModelNode operation) throws OperationFailedException {
+                        applyToRuntime(context, model, name, value);
+                    }
+                }, OperationContext.Stage.VERIFY);
             }
         } else if (reload) {
             context.reloadRequired();
@@ -118,5 +127,18 @@ public class SystemPropertyAddHandler implements OperationStepHandler{
                 }
             }
         });
+    }
+
+    // This is where the properties get added in either at the MODEL stage or at the RUNTIME stage.
+    private void applyToRuntime(OperationContext context, ModelNode model, String name, String value) throws OperationFailedException {
+        final String setValue = value != null ? VALUE.resolveModelAttribute(context, model).asString() : null;
+        if (setValue != null) {
+            WildFlySecurityManager.setPropertyPrivileged(name, setValue);
+        } else {
+            WildFlySecurityManager.clearPropertyPrivileged(name);
+        }
+        if (systemPropertyUpdater != null) {
+            systemPropertyUpdater.systemPropertyUpdated(name, setValue);
+        }
     }
 }

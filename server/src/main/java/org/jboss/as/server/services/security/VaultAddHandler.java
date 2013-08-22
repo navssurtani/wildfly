@@ -64,6 +64,8 @@ public class VaultAddHandler extends AbstractAddStepHandler {
 
     @Override
     protected void performRuntime(OperationContext context, ModelNode operation, ModelNode model, ServiceVerificationHandler verificationHandler, List<ServiceController<?>> newControllers) throws OperationFailedException {
+        // Adding as a separate call here since we can understand better when this call has to be made.
+        addNewRuntimeStep(context, verificationHandler);
 
         ModelNode codeNode = VaultResourceDefinition.CODE.resolveModelAttribute(context, model);
         String vaultClass = codeNode.isDefined() ? codeNode.asString() : null;
@@ -81,6 +83,10 @@ public class VaultAddHandler extends AbstractAddStepHandler {
                 throw ServerMessages.MESSAGES.cannotCreateVault(e, e);
             }
         }
+    }
+
+    private void addNewRuntimeStep(OperationContext context, ServiceVerificationHandler verificationHandler) {
+        context.addStep(verificationHandler, OperationContext.Stage.RUNTIME, true);
     }
 
     @Override
