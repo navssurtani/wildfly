@@ -81,6 +81,7 @@ public class SystemPropertyAddHandler implements OperationStepHandler{
 
     @Override
     public void execute(final OperationContext context, final ModelNode operation) throws  OperationFailedException {
+        ServerLogger.ROOT_LOGGER.info("Entered execute call.");
         final ModelNode model = context.createResource(PathAddress.EMPTY_ADDRESS).getModel();
         for (AttributeDefinition attr : attributes) {
             attr.validateAndSet(operation, model);
@@ -96,8 +97,9 @@ public class SystemPropertyAddHandler implements OperationStepHandler{
                 applyToRuntime(context, model, name, value);
             } catch (OperationFailedException ofe) {
 
-                if(ServerLogger.ROOT_LOGGER.isDebugEnabled()) ServerLogger.ROOT_LOGGER.debug
-                        ("OperationFailedException caught ");
+                if(ServerLogger.ROOT_LOGGER.isDebugEnabled()) {
+                   ServerLogger.ROOT_LOGGER.debug ("OperationFailedException caught ");
+                }
 
                 //WFLY-1904 if this is being read from a vault the vault will not be ready yet - hence we need to
                 // make a call to the same execute() method but at runtime.
