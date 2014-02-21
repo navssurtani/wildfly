@@ -97,13 +97,9 @@ public class SystemPropertyAddHandler implements OperationStepHandler{
                 applyToRuntime(context, model, name, value);
             } catch (OperationFailedException ofe) {
 
-                if(ServerLogger.ROOT_LOGGER.isDebugEnabled()) {
-                   ServerLogger.ROOT_LOGGER.debug ("OperationFailedException caught ");
-                }
-
+                ServerLogger.ROOT_LOGGER.info("OperationFailedException caught ");
                 //WFLY-1904 if this is being read from a vault the vault will not be ready yet - hence we need to
                 // make a call to the same execute() method but at runtime.
-
                 context.addStep(new OperationStepHandler() {
                     @Override
                     public void execute(OperationContext context, ModelNode operation) throws OperationFailedException {
@@ -133,7 +129,8 @@ public class SystemPropertyAddHandler implements OperationStepHandler{
 
     // This is where the properties get added in either at the MODEL stage or at the RUNTIME stage.
     private void applyToRuntime(OperationContext context, ModelNode model, String name, String value) throws OperationFailedException {
-        final String setValue = value != null ? VALUE.resolveModelAttribute(context, model).asString() : null;
+       ServerLogger.ROOT_LOGGER.info("In applyToRuntime() call");
+       final String setValue = value != null ? VALUE.resolveModelAttribute(context, model).asString() : null;
         if (setValue != null) {
             WildFlySecurityManager.setPropertyPrivileged(name, setValue);
         } else {

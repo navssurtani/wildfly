@@ -47,17 +47,18 @@ public class VaultSystemPropertyTestCase {
 
     private static final String RESOURCE_LOCATION = VaultSystemPropertyTestCase.class.getProtectionDomain()
             .getCodeSource().getLocation().getFile() + "security/sysprop-vault/";
+    private static final String ATTRIBUTE_NAME = "system-property-password";
     private static final String VAULT_BLOCK = "props_Block";
     private static final String PASSWORD = "password";
     private static final String SYSTEM_PROPERTY_KEY = "org.jboss.as.test.integration.security.vault.vaultedPassword";
 
-    // The value which we will check for.
-    private static String expectedVaultedString = null;
+    private VaultHandler testVaultHandler;
 
     /* The deployment to kick off this test */
     @Deployment
     public static WebArchive deployment() {
         final WebArchive war = ShrinkWrap.create(WebArchive.class, "vault-sys-prop.war");
+        war.addClass(VaultHandler.class);
         return war;
     }
 
@@ -65,10 +66,20 @@ public class VaultSystemPropertyTestCase {
     public void testSystemProperty() {
         // Now we are going to try and get that system property out and make sure that it's the same String as that
         // vaulted password.
+        String expectedVaultedString = buildExpectedString();
         String actualVaultedString = System.getProperty(SYSTEM_PROPERTY_KEY);
         logger.info("(Test Method) Expected vaulted String: " + expectedVaultedString);
         Assert.assertFalse(expectedVaultedString == null);
         Assert.assertFalse(actualVaultedString == null);
+        Assert.assertEquals(expectedVaultedString, actualVaultedString);
+    }
+
+    private String buildExpectedString() {
+        testVaultHandler = new VaultHandler();
+        String vaultedPassword = testVaultHandler.addSecuredAttribute(VAULT_BLOCK, ATTRIBUTE_NAME,
+                PASSWORD.toCharArray());
+        logger.info("vaultedPassword built from test handler: "  + vaultedPassword);
+        return "{$" + vaultedPassword + "}";
     }
 
 
@@ -77,7 +88,7 @@ public class VaultSystemPropertyTestCase {
 
     static class VaultSystemPropertyServerSetup implements ServerSetupTask {
 
-        private VaultHandler vaultHandler;
+        private VaultHandler setupVaultHandler;
 
         @Override
         public void setup(ManagementClient client, String containerId) throws Exception {
@@ -91,33 +102,30 @@ public class VaultSystemPropertyTestCase {
             // Pause for a second, we need to get the VaultHandler going. Basically the vault,
             // we can edit some of the default configurations for it and add in the password.
 
-            vaultHandler = new VaultHandler(RESOURCE_LOCATION);
+            setupVaultHandler = new VaultHandler(RESOURCE_LOCATION);
 
             // Add in the security attributes.
-            String attributeName = "system-property-password";
-            String vaultedPasswordString = vaultHandler.addSecuredAttribute(VAULT_BLOCK, attributeName,
+            String vaultedPasswordString = setupVaultHandler.addSecuredAttribute(VAULT_BLOCK, ATTRIBUTE_NAME,
                     PASSWORD.toCharArray());
-
-            logger.info("Vaulted password String: " + vaultedPasswordString);
-
-            // Now we set the vault options that we have from the handler to our vaultOptions object.
-            vaultOption.get("KEYSTORE_URL").set(vaultHandler.getKeyStore());
-            vaultOption.get("KEYSTORE_PASSWORD").set(vaultHandler.getMaskedKeyStorePassword());
-            vaultOption.get("KEYSTORE_ALIAS").set(vaultHandler.getAlias());
-            vaultOption.get("SALT").set(vaultHandler.getSalt());
-            vaultOption.get("ITERATION_COUNT").set(vaultHandler.getIterationCountAsString());
-            vaultOption.get("ENC_FILE_DIR").set(vaultHandler.getEncodedVaultFileDirectory());
-
             // We need the password in the form '{$VAULT::VAULT_BLOCK::attributeName::1}'
             // We already have the main body from the variable 'vaultedPasswordString'
-            expectedVaultedString = "{$" + vaultedPasswordString + "}";
-            logger.info("(ServerSetup) Expected vaulted String:: " + expectedVaultedString);
+            vaultedPasswordString = "{$" + vaultedPasswordString + "}";
+            logger.info("(ServerSetup) Expected vaulted String:: " + vaultedPasswordString);
+
+            // Now we set the vault options that we have from the handler to our vaultOptions object.
+            vaultOption.get("KEYSTORE_URL").set(setupVaultHandler.getKeyStore());
+            vaultOption.get("KEYSTORE_PASSWORD").set(setupVaultHandler.getMaskedKeyStorePassword());
+            vaultOption.get("KEYSTORE_ALIAS").set(setupVaultHandler.getAlias());
+            vaultOption.get("SALT").set(setupVaultHandler.getSalt());
+            vaultOption.get("ITERATION_COUNT").set(setupVaultHandler.getIterationCountAsString());
+            vaultOption.get("ENC_FILE_DIR").set(setupVaultHandler.getEncodedVaultFileDirectory());
+
 
             // system property Operation
             ModelNode spOp = new ModelNode();
             spOp.get(OP).set(ADD);
             spOp.get(OP_ADDR).add("system-property", SYSTEM_PROPERTY_KEY);
-            spOp.get(VALUE).set(expectedVaultedString);
+            spOp.get(VALUE).set(vaultedPasswordString);
 
             // Execute the operations
             client.getControllerClient().execute(new OperationBuilder(op).build());
@@ -135,9 +143,7 @@ public class VaultSystemPropertyTestCase {
             managementClient.getControllerClient().execute(new OperationBuilder(op).build());
 
             // remove temporary files
-            vaultHandler.cleanUp();
+            setupVaultHandler.cleanUp();
         }
     }
-
-
 }
