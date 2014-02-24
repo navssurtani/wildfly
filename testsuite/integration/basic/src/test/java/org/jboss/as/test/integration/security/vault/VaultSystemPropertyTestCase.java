@@ -79,7 +79,7 @@ public class VaultSystemPropertyTestCase {
         String vaultedPassword = testVaultHandler.addSecuredAttribute(VAULT_BLOCK, ATTRIBUTE_NAME,
                 PASSWORD.toCharArray());
         logger.info("vaultedPassword built from test handler: "  + vaultedPassword);
-        return "{$" + vaultedPassword + "}";
+        return "${" + vaultedPassword + "}";
     }
 
 
@@ -109,7 +109,7 @@ public class VaultSystemPropertyTestCase {
                     PASSWORD.toCharArray());
             // We need the password in the form '{$VAULT::VAULT_BLOCK::attributeName::1}'
             // We already have the main body from the variable 'vaultedPasswordString'
-            vaultedPasswordString = "{$" + vaultedPasswordString + "}";
+            vaultedPasswordString = "${" + vaultedPasswordString + "}";
             logger.info("(ServerSetup) Expected vaulted String:: " + vaultedPasswordString);
 
             // Now we set the vault options that we have from the handler to our vaultOptions object.

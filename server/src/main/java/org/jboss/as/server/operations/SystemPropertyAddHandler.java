@@ -93,20 +93,7 @@ public class SystemPropertyAddHandler implements OperationStepHandler{
         final boolean reload = !applyToRuntime && context.getProcessType().isServer();
 
         if (applyToRuntime) {
-            try {
-                applyToRuntime(context, model, name, value);
-            } catch (OperationFailedException ofe) {
-
-                ServerLogger.ROOT_LOGGER.info("OperationFailedException caught ");
-                //WFLY-1904 if this is being read from a vault the vault will not be ready yet - hence we need to
-                // make a call to the same execute() method but at runtime.
-                context.addStep(new OperationStepHandler() {
-                    @Override
-                    public void execute(OperationContext context, ModelNode operation) throws OperationFailedException {
-                        applyToRuntime(context, model, name, value);
-                    }
-                }, OperationContext.Stage.VERIFY);
-            }
+            applyToRuntime(context, model, name, value);
         } else if (reload) {
             context.reloadRequired();
         }
@@ -133,11 +120,13 @@ public class SystemPropertyAddHandler implements OperationStepHandler{
        final String setValue = value != null ? VALUE.resolveModelAttribute(context, model).asString() : null;
         if (setValue != null) {
             WildFlySecurityManager.setPropertyPrivileged(name, setValue);
+            ServerLogger.ROOT_LOGGER.info("Found an actual value for the setValue param: " + setValue);
         } else {
             WildFlySecurityManager.clearPropertyPrivileged(name);
         }
         if (systemPropertyUpdater != null) {
             systemPropertyUpdater.systemPropertyUpdated(name, setValue);
         }
+        ServerLogger.ROOT_LOGGER.info("Cleared applyToRuntime call.");
     }
 }
